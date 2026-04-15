@@ -1,0 +1,49 @@
+{
+  "name": "@leistraj/sigil",
+  "version": "0.1.7",
+  "description": "Local-first project memory and governance engine for AI-assisted development",
+  "main": "./dist/index.js",
+  "bin": {
+    "sigil": "dist/index.js"
+  },
+  "type": "commonjs",
+  "files": [
+    "dist/"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "prepare": "npm run build",
+    "build": "tsc",
+    "postbuild": "node -e \"const fs=require('fs');const f='dist/index.js';fs.writeFileSync(f,'#!/usr/bin/env node\\n'+fs.readFileSync(f,'utf8'))\" && chmod +x dist/index.js",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "node-sqlite3-wasm": "^0.8.28",
+    "commander": "^12.1.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/uuid": "^9.0.7",
+    "typescript": "^5.3.3"
+  },
+  "keywords": [
+    "ai",
+    "governance",
+    "memory",
+    "claude",
+    "architecture"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LeistraJ/sigil.git"
+  },
+  "bugs": {
+    "url": "https://github.com/LeistraJ/sigil/issues"
+  },
+  "homepage": "https://github.com/LeistraJ/sigil#readme"
+}
