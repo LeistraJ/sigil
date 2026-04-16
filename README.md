@@ -2,91 +2,141 @@
 
 Local-first project memory and governance engine for AI-assisted software development.
 
-Sigil gives every AI coding CLI (Claude Code, Gemini CLI, Codex, local models) and every human developer the same context: architecture rules, constraints, anti-patterns, patterns, decisions, tasks, and technical debt — automatically, from a local SQLite database.
+Sigil gives every AI coding agent (Claude Code, Cursor, Windsurf, Gemini CLI, GitHub Copilot) and every human developer the same context: architecture rules, constraints, anti-patterns, decisions, tasks, and technical debt — automatically, from a local SQLite database.
 
-**Sigil owns memory + governance. CLIs own execution. Users own control.**
+**Sigil owns memory + governance. Agents own execution. You own control.**
 
 ---
 
 ## Installation
 
-### npm (recommended)
 ```bash
 npm install -g @leistraj/sigil
 ```
 
-### npx (no install — run once)
+> Requires Node.js >=18 and a C++ compiler (for the native SQLite module).
+
+### Other install methods
+
 ```bash
-npx @leistraj/sigil init
+npx @leistraj/sigil init          # run once without installing
+npm install -g github:LeistraJ/sigil  # direct from GitHub
 ```
 
-### Homebrew
-```bash
-brew tap LeistraJ/sigil
-brew install sigil-cli
-```
+---
 
-### Direct from GitHub
-```bash
-npm install -g github:LeistraJ/sigil
-```
-> Requires Node.js >=18 and a C++ compiler (for the SQLite native module).
+## Two Modes
 
-### From source
-```bash
-git clone https://github.com/LeistraJ/sigil.git
-cd sigil
-npm install && npm run build
-npm link
-```
+**Lite mode** — Works in any git repo immediately after install. No per-project setup. Tracks session state globally (`~/.sigil/sessions/`). Gets you `sigil resume` for free.
+
+**Full mode** — Run `sigil init` once per project. Unlocks the full database: tasks, specs, decisions, debt, governance scoring, and auto-regenerated agent context files.
 
 ---
 
 ## Quick Start
 
+### One-time global setup (do this once)
+
 ```bash
-# 1. Initialize in your project root
+sigil setup
+```
+
+Installs three hooks that run automatically in every git project from now on:
+- `~/.git-hooks/post-commit` — saves session after every commit (works with any agent)
+- `~/.claude/settings.json` Stop hook — saves when Claude Code finishes responding
+- `~/.zshrc` EXIT trap — saves when your terminal closes
+
+After this, session state saves itself. You never have to think about it.
+
+### Start a project (full mode)
+
+```bash
 cd my-project
-sigil init
+sigil init           # interactive setup: name, type, description, structure detection
+```
 
-# 2. Code with your AI agent (reads CLAUDE.md / AGENTS.md automatically)
+Creates `.sigil/sigil.db`, `.sigil/config.json`, and generates `CLAUDE.md` + `AGENTS.md` pre-loaded with architecture rules appropriate for your project type.
 
-# 3. After a session, ingest changes
-sigil ingest
+### Daily flow
 
-# 4. Check governance health
-sigil check
+```bash
+# Morning — agent reads CLAUDE.md/AGENTS.md automatically, session context already there
 
-# 5. See project overview
-sigil status
+# During work
+sigil task update abc123 --status in_progress
+
+# After a chunk of work
+sigil ingest          # scan changes, update DB, regenerate context files
+sigil check           # optional — governance audit with health score
+
+# Made an important decision
+sigil decision add
+
+# End of day — leave a note for next session
+sigil session save --note "finished the API layer, need to wire up the UI next"
+# (or just close the terminal — EXIT trap handles it automatically)
 ```
 
 ---
 
-## The Lifecycle
+## Pick Up Where You Left Off
+
+The session system saves your context automatically and injects it into all your agent config files so the next session starts with full context — no manual copy-paste.
+
+### How it works
+
+When a session save fires (automatically after every commit, every Claude response, and when your terminal closes), Sigil:
+1. Captures: current branch, in-progress tasks, recent commits, uncommitted files
+2. Writes to: `CLAUDE.md`, `AGENTS.md`, `.cursorrules`, `GEMINI.md`, `.windsurfrules`, `.github/copilot-instructions.md` — whatever exists in your project
+
+The next time any agent opens your project and reads its config file, the session block is already there.
+
+### Manual commands
+
+```bash
+# Leave a note before closing (most useful thing you can do)
+sigil session save --note "halfway through auth refactor, token refresh not wired up"
+
+# Print the briefing to terminal (or to pipe to an agent)
+sigil resume
+```
+
+`sigil resume` works in lite mode (no `sigil init`) — it reads from git state alone.
+
+---
+
+## The Core Loop (Full Mode)
 
 ```
-sigil init (one-time)
-    → creates .sigil/, seeds DB, generates CLAUDE.md + AGENTS.md
+sigil init (one-time per project)
+    → creates .sigil/, seeds DB with rules, generates agent context files
 
-AI agent session (Claude, Gemini, Codex, etc.)
-    → agent reads CLAUDE.md / AGENTS.md automatically
-    → agent writes code following governance rules
+AI agent session (reads CLAUDE.md / AGENTS.md automatically)
+    → follows architecture rules, constraints, anti-patterns
+    → works on tasks linked to feature specs
 
 sigil ingest (after session, or auto via git hook)
-    → diffs files, scans for debt, records what happened
+    → diffs files, detects debt, records what happened
     → regenerates all agent context files
 
-Next AI agent session
-    → reads updated context with full memory of what previous agents did
-    → follows same architecture rules
+sigil check (optional)
+    → governance audit, health score 0–100
+    → flags violations, warnings, coverage gaps
 
-(repeat)
+(repeat — each session starts with full context from the previous one)
 ```
 
 ---
 
 ## Commands
+
+### Setup & Session
+
+| Command | Description |
+|---------|-------------|
+| `sigil setup [--dry-run]` | One-time install of global hooks for all projects |
+| `sigil session save [--note "..."] [--quiet]` | Save session snapshot manually |
+| `sigil resume` | Print session briefing (works without sigil init) |
 
 ### Core
 
@@ -94,44 +144,127 @@ Next AI agent session
 |---------|-------------|
 | `sigil init` | Initialize Sigil in the current project |
 | `sigil ingest [--agent=<name>] [--quiet]` | Scan changes and update context |
-| `sigil status` | Project health overview |
-| `sigil check [--format=json\|markdown]` | Governance audit with health score |
+| `sigil status` | Project health dashboard |
+| `sigil check [--format=json\|markdown] [--quiet]` | Governance audit with health score |
 
-### Governance CRUD
-
-| Command | Description |
-|---------|-------------|
-| `sigil rule list\|add\|disable\|enable\|show` | Manage architecture rules |
-| `sigil constraint list\|add\|show` | Manage project constraints |
-| `sigil antipattern list\|add\|show` | Manage anti-patterns |
-| `sigil pattern list\|add\|show` | Manage code patterns |
-
-### Project CRUD
+### Governance
 
 | Command | Description |
 |---------|-------------|
-| `sigil spec create\|list\|show\|update` | Manage feature specs |
-| `sigil task add\|list\|update\|show` | Manage tasks |
-| `sigil decision add\|list\|show` | Record architectural decisions |
-| `sigil debt add\|list\|update\|show` | Track technical debt |
+| `sigil rule list\|add\|disable\|enable\|show` | Architecture rules |
+| `sigil constraint list\|add\|show` | Project constraints |
+| `sigil antipattern list\|add\|show` | Anti-patterns |
+| `sigil pattern list\|add\|show` | Code patterns agents should follow |
+
+### Project Knowledge
+
+| Command | Description |
+|---------|-------------|
+| `sigil spec create\|list\|show\|update` | Feature specs (goal, scope, acceptance criteria) |
+| `sigil task add\|list\|update\|show` | Tasks (linked to specs, assigned to agents) |
+| `sigil decision add\|list\|show` | Architectural decisions (permanent record) |
+| `sigil debt add\|list\|update\|show` | Technical debt tracking |
 
 ### Output & Export
 
 | Command | Description |
 |---------|-------------|
-| `sigil query <table> [--status=] [--severity=] [--limit=] [--format=json]` | Query any table |
+| `sigil query <question>` | Ad-hoc questions about project data |
 | `sigil export context [--profile=builder\|reviewer\|planner\|debugger]` | Export context file |
 | `sigil handoff [--mode=agent\|human\|sprint]` | Generate handoff document |
-| `sigil report governance [--since=7d] [--format=json\|markdown]` | Governance report |
+| `sigil report governance [--since=7d] [--format=json\|markdown]` | Governance trend report |
+
+---
+
+## What Gets Injected into Agent Files
+
+After `sigil init` + `sigil ingest`, your `CLAUDE.md` has two auto-managed sections:
+
+**Session block** (`<!-- SIGIL_SESSION:START -->`) — updated on every session save:
+- When you last saved and from which branch
+- Your "where you left off" note
+- What tasks were in progress
+- Uncommitted files and recent commits
+
+**Context block** (`<!-- SIGIL:START -->`) — updated on every `sigil ingest`:
+- Project name, type, description
+- Active feature spec and its goal
+- Open tasks ordered by priority
+- Architecture rules (violations only — the hard constraints)
+- Project constraints
+- Recent decisions to honor
+- Open critical/high technical debt
+
+Any content you write **outside** these markers is preserved. Sigil only manages its own blocks.
+
+---
+
+## Supported Agent Files
+
+Sigil detects and injects session context into whichever of these exist in your project:
+
+| File | Agent |
+|------|-------|
+| `CLAUDE.md` | Claude Code |
+| `AGENTS.md` | Gemini CLI, general |
+| `GEMINI.md` | Gemini CLI |
+| `.cursorrules` | Cursor |
+| `cursor.md` | Cursor |
+| `.windsurfrules` | Windsurf |
+| `.github/copilot-instructions.md` | GitHub Copilot |
+
+---
+
+## Project Types & Seeded Rules
+
+On `sigil init`, choose a project type and get appropriate rules seeded automatically:
+
+| Type | Seeded rules |
+|------|-------------|
+| `general` | 15 universal architecture rules, 10 constraints, 8 anti-patterns |
+| `frontend` | Universal + 6 frontend rules (component responsibility, no direct DOM, API service layer, etc.) |
+| `backend` | Universal + 7 backend rules (thin handlers, repository pattern, no silent errors, etc.) |
+| `fullstack` | Frontend + backend + 3 cross-boundary rules (shared types, API contract alignment, etc.) |
+| `library` | Universal + 6 library rules (semver, tree-shakeable exports, backward compatibility, etc.) |
+
+---
+
+## Health Score
+
+`sigil check` produces a score 0–100:
+
+- Start at **100**
+- **−8** per violation (architecture rule breach, critical aging debt, oversized files)
+- **−3** per warning
+- **−1** per info issue
+
+Score ratings: 90+ excellent · 75–89 good · 60–74 needs attention · 40–59 concerning · below 40 critical
+
+---
+
+## Technical Debt Categories
+
+| Category | Description |
+|----------|-------------|
+| `duplication` | Repeated logic across modules |
+| `boundary_violation` | Layers bleeding into each other |
+| `missing_tests` | Code without coverage |
+| `temporary_hack` | Shortcuts needing proper fixes |
+| `oversized_file` | Files over the line threshold |
+| `unclear_abstraction` | Confusing module boundaries |
+| `inconsistent_naming` | Same concept named differently |
+| `performance_compromise` | Known slow paths |
+| `missing_error_handling` | Silent failures |
+| `stale_dependency` | Outdated or risky dependencies |
 
 ---
 
 ## Context Profiles
 
-When exporting context or running `sigil export context`, choose a profile optimized for your use case:
+When exporting context manually, choose a profile:
 
-| Profile | Best for |
-|---------|----------|
+| Profile | Optimized for |
+|---------|--------------|
 | `builder` (default) | Active development — tasks, rules, patterns, recent work |
 | `reviewer` | Code review — decisions, anti-patterns, debt |
 | `planner` | Sprint planning — specs, tasks, constraints |
@@ -139,41 +272,26 @@ When exporting context or running `sigil export context`, choose a profile optim
 
 ---
 
-## Project Types & Seeded Rules
-
-On `sigil init`, you choose a project type. Sigil seeds appropriate rules:
-
-- **general**: 15 universal architecture rules + 10 constraints + 8 anti-patterns
-- **frontend**: universal + 6 frontend rules (component responsibility, no DOM manipulation, API service layer, etc.)
-- **backend**: universal + 7 backend rules (thin handlers, repository pattern, no silent errors, etc.)
-- **fullstack**: frontend + backend + 3 cross-boundary rules (shared types, API contract alignment, etc.)
-- **library**: universal + 6 library rules (semver, tree-shakeable exports, backward compatibility, etc.)
-
----
-
 ## Generated Files
 
-After `sigil init` or `sigil ingest`, Sigil writes:
-
 ```
-CLAUDE.md                           ← Auto-loaded by Claude Code
-AGENTS.md                           ← Auto-loaded by Gemini CLI
+CLAUDE.md                          ← auto-loaded by Claude Code
+AGENTS.md                          ← auto-loaded by Gemini CLI
 .sigil/
-├── sigil.db                        ← SQLite database (all state)
-├── config.json                     ← Project configuration
+├── sigil.db                       ← SQLite database (all state)
+├── config.json                    ← project configuration
 └── exports/
-    └── context-latest.md           ← Full context (no token limit)
+    └── context-latest.md          ← full context export (no token limit)
+~/.sigil/
+└── sessions/<repo-hash>/
+    └── session.json               ← lite session state (no sigil init required)
 ```
-
-**Important**: Sigil uses `<!-- SIGIL:START -->` / `<!-- SIGIL:END -->` markers in CLAUDE.md/AGENTS.md to preserve any content you've added manually outside those markers.
 
 ### Should you commit `sigil.db`?
 
-`sigil.db` is **not** gitignored by default. The right choice depends on your workflow:
-
 | Scenario | Recommendation |
 |----------|---------------|
-| Solo developer | **Commit it.** Your rules, tasks, decisions, and debt persist across machines. |
+| Solo developer | **Commit it.** Rules, tasks, decisions, and debt persist across machines. |
 | Team with shared governance | **Commit it.** Everyone shares the same rules and decisions. |
 | Team where each dev has their own context | Add `.sigil/sigil.db` to `.gitignore`. Use `sigil export context` to share context files manually. |
 
@@ -181,13 +299,14 @@ AGENTS.md                           ← Auto-loaded by Gemini CLI
 
 ## Configuration
 
-`.sigil/config.json` controls Sigil's behavior:
+`.sigil/config.json`:
 
 ```json
 {
-  "project": { "name": "my-project", "type": "fullstack" },
+  "project": { "name": "my-project", "type": "fullstack", "description": "..." },
   "thresholds": {
     "max_file_lines": 300,
+    "max_function_lines": 80,
     "debt_aging_critical_days": 7,
     "debt_aging_high_days": 30,
     "debt_aging_stale_days": 90
@@ -195,57 +314,13 @@ AGENTS.md                           ← Auto-loaded by Gemini CLI
   "structure": {
     "feature_dirs": ["src/features/*"],
     "service_dirs": ["src/services/*"],
-    ...
+    "shared_dirs": ["src/shared/*"],
+    "test_dirs": ["src/**/__tests__/*"]
   },
   "max_context_tokens": 8000,
   "agent_files": ["CLAUDE.md", "AGENTS.md"]
 }
 ```
-
----
-
-## Git Hook
-
-During `sigil init`, you can install a post-commit hook for automatic ingestion:
-
-```bash
-# .git/hooks/post-commit
-#!/bin/sh
-# Sigil auto-ingest — skipped silently if sigil is not installed
-command -v sigil >/dev/null 2>&1 && sigil ingest --quiet --agent=git-hook
-```
-
-This runs `sigil ingest` after every commit, keeping your context files always current. The `command -v` guard means teammates without Sigil installed won't get hook errors.
-
----
-
-## Technical Debt Categories
-
-When running `sigil debt add`, choose a category:
-
-- `duplication` — Repeated logic across modules
-- `boundary_violation` — Layers bleeding into each other
-- `missing_tests` — Code without test coverage
-- `temporary_hack` — Shortcuts that need proper fixes
-- `oversized_file` — Files over the line threshold
-- `unclear_abstraction` — Confusing module boundaries
-- `inconsistent_naming` — Same concept named differently
-- `performance_compromise` — Known slow paths
-- `missing_error_handling` — Silent failures
-- `stale_dependency` — Outdated or risky dependencies
-
----
-
-## Health Score
-
-`sigil check` calculates a governance score (0-100):
-
-- Start at **100**
-- **-8** per violation
-- **-3** per warning  
-- **-1** per info issue
-
-Violations include: oversized files, aged critical debt, missing rationale on decisions, specs without acceptance criteria.
 
 ---
 

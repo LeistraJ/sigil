@@ -16,6 +16,8 @@ import { registerQuery } from './commands/query';
 import { registerExport } from './commands/export';
 import { registerHandoff } from './commands/handoff';
 import { registerReport } from './commands/report';
+import { registerSession, registerSetup } from './commands/session';
+import { registerHelp } from './commands/help';
 
 program
   .name('sigil')
@@ -45,6 +47,13 @@ registerQuery(program);
 registerExport(program);
 registerHandoff(program);
 registerReport(program);
+
+// Session management
+registerSession(program);
+registerSetup(program);
+
+// Help
+registerHelp(program);
 
 // Handle unknown commands
 program.on('command:*', () => {

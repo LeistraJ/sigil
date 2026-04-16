@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sigil session save --quiet 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}

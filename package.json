@@ -1,6 +1,6 @@
 {
   "name": "@leistraj/sigil",
-  "version": "0.1.7",
+  "version": "0.2.0",
   "description": "Local-first project memory and governance engine for AI-assisted development",
   "main": "./dist/index.js",
   "bin": {

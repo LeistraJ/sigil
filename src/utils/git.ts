@@ -8,6 +8,17 @@ export interface GitDiff {
   deleted: string[];
 }
 
+export function getGitRoot(cwd?: string): string | null {
+  try {
+    return execSync('git rev-parse --show-toplevel', {
+      cwd: cwd ?? process.cwd(),
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).toString().trim();
+  } catch {
+    return null;
+  }
+}
+
 export function isGitRepo(cwd?: string): boolean {
   const dir = cwd ?? process.cwd();
   return fs.existsSync(path.join(dir, '.git'));
@@ -109,6 +120,52 @@ export function getUntrackedFiles(cwd?: string): string[] {
     }).toString();
 
     return output.split('\n').filter(l => l.trim().length > 0);
+  } catch {
+    return [];
+  }
+}
+
+export function getCurrentBranch(cwd?: string): string | null {
+  try {
+    return execSync('git rev-parse --abbrev-ref HEAD', {
+      cwd: cwd ?? process.cwd(),
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).toString().trim();
+  } catch {
+    return null;
+  }
+}
+
+export function getShortRef(cwd?: string): string | null {
+  try {
+    return execSync('git rev-parse --short HEAD', {
+      cwd: cwd ?? process.cwd(),
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).toString().trim();
+  } catch {
+    return null;
+  }
+}
+
+export function getRecentCommits(n = 5, cwd?: string): string[] {
+  try {
+    return execSync(`git log --oneline -${n}`, {
+      cwd: cwd ?? process.cwd(),
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).toString().trim().split('\n').filter(l => l.trim().length > 0);
+  } catch {
+    return [];
+  }
+}
+
+export function getDirtyFiles(cwd?: string): string[] {
+  try {
+    return execSync('git status --porcelain', {
+      cwd: cwd ?? process.cwd(),
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).toString().trim().split('\n')
+      .filter(l => l.trim().length > 0)
+      .map(l => l.slice(3).trim());
   } catch {
     return [];
   }
